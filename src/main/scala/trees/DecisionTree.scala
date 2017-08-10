@@ -7,9 +7,6 @@ import core.Matrix
 // container for binary splits
 case class SplitContainer(X: Matrix[Double], y: Matrix[Int])
 
-// For passing split info between functions
-case class SplitInfo(index: Int, value: Double, splits: List[SplitContainer])
-
 
 class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int, val minLeafSize: Int) {
 
