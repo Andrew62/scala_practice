@@ -51,7 +51,16 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
     val left = new ListBuffer[Int]()
     val right = new ListBuffer[Int]()
 
-    dataset.rowIndices.map(x => if (dataset(x)(colIndex) < splitValue) left += x else right += x)
+    // Go through each row
+    for (rowIdx <- dataset.rowIndices){
+      // we're looking to split on a specific col index and collect splits
+      // into two groups
+      if (dataset(rowIdx)(colIndex) < splitValue) {
+        left += rowIdx
+      } else {
+        right += rowIdx
+      }
+    }
     // Copying the relevant data from the current dataset
     // over for use in discrediting the tree further
     List[SplitContainer](splitSide(left, dataset, targets), splitSide(right, dataset, targets))
@@ -66,7 +75,6 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
     var bestValue: Option[Double] = Option[Double](-1)
     var bestScore: Double = 2.0 // Gini is from 0 to 1
     var bestSplits: List[SplitContainer] = List[SplitContainer]()
-    // Is there a better functional way to remove this? Maybe create a new class?
     for (rowIdx <- 0 until dataset.rows) {
       for (colIdx <- 0 until dataset.cols) {
         // basically grid search here to find a col and value to split on
@@ -101,7 +109,7 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
     DecisionBranch[Int](classValue = Option[Int](classLabel))
   }
 
-  // Build the tree here
+
   val root: DecisionBranch[Int] = getSplit(this.X, this.y, 0)
 
   def predict(data: Matrix[Double]) : Array[Int] = {
