@@ -1,10 +1,10 @@
 package trees
 
 import core.Matrix
-import org.scalatest.FunSuite
+import org.scalatest.FlatSpec
 import scala.util.Random.{nextFloat, nextInt}
 
-class DecisionTreeTest extends FunSuite {
+class DecisionTreeTest extends FlatSpec {
 
   val rows = 5
   val cols = 2
@@ -21,6 +21,28 @@ class DecisionTreeTest extends FunSuite {
   def f() = {nextInt(2)}
   fillArray[Int](y, f)
 
-  val tree = new DecisionTree(X, y, 10, 1)
-  println("done")
+  "A DecisionBranch" should "be created and fit when given data" in {
+    val tree = new DecisionTree(X, y, 10, 1)
+    assert(tree.root.isInstanceOf[DecisionBranch[Int]])
+  }
+
+  "Predictions" should "be made when we fit and predict" in {
+    val tree = new DecisionTree(X, y, 10, 1)
+    val y_pred = tree.predict(X)
+    assert(y_pred.isInstanceOf[Array[Int]])
+  }
+
+  "Accuracy" should "be higher than zero" in {
+    val tree = new DecisionTree(X, y, 10, 1)
+    val y_pred = tree.predict(X)
+    var count = 0
+    for (rowidx <- 0 until y.rows) {
+      if (y(rowidx)(0) == y_pred(rowidx)) {
+        count += 1
+      }
+    }
+    val accuracy = count / y_pred.length.asInstanceOf[Double]
+    println(s"Accuracy: $accuracy")
+    assert(accuracy > 0)
+  }
 }

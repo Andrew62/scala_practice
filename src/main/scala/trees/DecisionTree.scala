@@ -1,7 +1,6 @@
 package trees
 
 import scala.collection.mutable.ListBuffer
-import trees.{DBranch, Leaf}
 import core.Matrix
 
 
@@ -26,7 +25,7 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
     for (class_value <- this.uniqueClasses){
       for (split <- splits){
         if (split.y.rows > 0){
-          val count = split.y.container.flatMap(_.filter(_ == class_value)).size
+          val count = split.y.container.flatMap(_.filter(_ == class_value)).length
           val proportion = count / split.y.rows.toDouble
           gini += (proportion * (1.0 - proportion))
         }
@@ -70,13 +69,13 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
     List[SplitContainer](splitSide(left, dataset, targets), splitSide(right, dataset, targets))
   }
 
-  def getSplit(dataset: Matrix[Double], targets: Matrix[Int], depth: Int): Tree[Int] = {
+  def getSplit(dataset: Matrix[Double], targets: Matrix[Int], depth: Int): DecisionBranch[Int] = {
     // if we hit our limit in terms of depth or leaf size it's time to terminate
     if (depth >= this.maxDepth || targets.rows <= this.minLeafSize || targets.rows <= 1){
       return toTerminal(targets)
     }
-    var bestIndex: Int = -1
-    var bestValue: Double = -1
+    var bestIndex: Option[Int]= Option[Int](-1)
+    var bestValue: Option[Double] = Option[Double](-1)
     var bestScore: Double = 2.0 // Gini is from 0 to 1
     var bestSplits: List[SplitContainer] = List[SplitContainer]()
     for (rowIdx <- 0 until dataset.rows) {
@@ -86,18 +85,18 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
         val splits = this.testSplit(dataset, targets, colIdx, splitValue)
         val gini = this.giniImpurity(splits)
         if (gini < bestScore) {
-          bestIndex = colIdx
-          bestValue = splitValue
+          bestIndex = Option[Int](colIdx)
+          bestValue = Option[Double](splitValue)
           bestScore = gini
           bestSplits = splits
         }
       }
     }
-    DBranch[Int](this.getSplit(bestSplits.head.X, bestSplits.head.y, depth + 1),
-      this.getSplit(bestSplits(1).X, bestSplits(1).y, depth + 1), bestValue, bestIndex)
+    DecisionBranch[Int](Some(this.getSplit(bestSplits.head.X, bestSplits.head.y, depth + 1)),
+      Some(this.getSplit(bestSplits(1).X, bestSplits(1).y, depth + 1)), bestValue, bestIndex)
   }
 
-  def toTerminal(targets: Matrix[Int]): Tree[Int] = {
+  def toTerminal(targets: Matrix[Int]): DecisionBranch[Int] = {
     // This finds the most frequently occurring value in a
     // matrix of integers
     val classLabel = targets
@@ -110,11 +109,11 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
       .maxBy(_._2)
       ._1
 
-    Leaf[Int](classLabel)
+    DecisionBranch[Int](classValue = Option[Int](classLabel))
   }
 
 
-  val root: DBranch[Int] = getSplit(this.X, this.y, 0).asInstanceOf[DBranch[Int]]
+  val root: DecisionBranch[Int] = getSplit(this.X, this.y, 0)
 
   def predict(data: Matrix[Double]) : Array[Int] = {
       data.container.map(x => realPredict(x, this.root, this.root.colIndex, this.root.splitValue))
@@ -124,9 +123,17 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
       * This is the real function we'll use to predict and just
       * provide an interface through predict() above
       */
-    private def realPredict(data: Array[Double], tree: Tree[Int], colIdx: Int, splitValue: Double) : Int = {
-      // TODO
-      1
+    private def realPredict(data: Array[Double],
+                            tree: DecisionBranch[Int],
+                            colIdx: Option[Int],
+                            splitValue: Option[Double]) : Int = {
+      if (tree.classValue.nonEmpty) {
+        tree.classValue.getOrElse(-1)
+      } else if (data(colIdx.getOrElse(-1: Int)) < splitValue.getOrElse(-1: Double)){
+        realPredict(data, tree.left.getOrElse(DecisionBranch[Int]()), tree.colIndex, tree.splitValue)
+      } else {
+        realPredict(data, tree.right.getOrElse(DecisionBranch[Int]()), tree.colIndex, tree.splitValue)
+      }
     }
 
 }
