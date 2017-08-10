@@ -68,7 +68,7 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
 
   def getSplit(dataset: Matrix[Double], targets: Matrix[Int], depth: Int): DecisionBranch[Int] = {
     // if we hit our limit in terms of depth or leaf size it's time to terminate
-    if (depth >= this.maxDepth || targets.rows <= this.minLeafSize || targets.rows <= 1){
+    if (depth >= this.maxDepth || targets.rows <= this.minLeafSize){
       return toTerminal(targets)
     }
     var bestIndex: Option[Int]= Option[Int](-1)
@@ -110,6 +110,7 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
   }
 
 
+  // Fit the tree here on construction
   val root: DecisionBranch[Int] = getSplit(this.X, this.y, 0)
 
   def predict(data: Matrix[Double]) : Array[Int] = {
