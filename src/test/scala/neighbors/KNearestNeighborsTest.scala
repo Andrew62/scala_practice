@@ -2,25 +2,32 @@ package neighbors
 
 import core.Matrix
 import org.scalatest.FlatSpec
-import scala.util.Random.{nextFloat, nextInt}
+
+import scala.util.Random.{nextGaussian, nextInt, setSeed}
 
 class KNearestNeighborsTest extends FlatSpec {
 
   behavior of "KNearestNeighbors"
+  setSeed(2017) // do this when testing random things pls
 
   val rows = 100
   val cols = 40
   val k = 4
   val X = new Matrix[Double](rows, cols)
-  val y = new Array[Int](rows).map(_ => nextInt(5))
-  private def fillArray[A](a: Matrix[A], randFunc: () => A) = {
-    for (i <- a.rowIndices) {
-      for (j <- a.colIndices) {
-        a(i)(j) = randFunc()
+  val y = new Array[Int](rows)
+
+  // some nice Gaussian separation
+  for (r <- X.rowIndices){
+    for (c <- X.colIndices){
+      if (r > (X.rows/2)){
+        X(r)(c) = nextGaussian() + 10
+        y(r) = 1
+      } else {
+        X(r)(c) = nextGaussian()
+        y(r) = 0
       }
     }
   }
-  fillArray[Double](X, nextFloat)
 
   val knn = new KNearestNeighbors(X, y, k)
 

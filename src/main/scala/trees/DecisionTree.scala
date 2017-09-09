@@ -7,6 +7,8 @@ import core.Matrix
 // container for binary splits
 case class SplitContainer(X: Matrix[Double], y: Matrix[Int])
 
+object AllDone extends Exception{}
+
 
 class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int, val minLeafSize: Int) {
 
@@ -39,7 +41,7 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
     val outX = new Matrix[Double](rowIndex.size, dataset.cols)
     val outY = new Matrix[Int](rowIndex.size, 1)
     for (idx <- rowIndex.indices){
-      outY(idx)(0) = rowIndex(idx)
+      outY(idx)(0) = targets(rowIndex(idx))(0)
       for (col <- outX.colIndices){
         outX(idx)(col) = dataset(idx)(col)
       }
@@ -68,29 +70,44 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
 
   def getSplit(dataset: Matrix[Double], targets: Matrix[Int], depth: Int): DecisionBranch[Int] = {
     // if we hit our limit in terms of depth or leaf size it's time to terminate
-    if (depth >= this.maxDepth || targets.rows <= this.minLeafSize){
+    if ((depth >= this.maxDepth || targets.rows <= this.minLeafSize) && targets.rows > 0){
       return toTerminal(targets)
     }
     var bestIndex: Option[Int]= Option[Int](-1)
     var bestValue: Option[Double] = Option[Double](-1)
-    var bestScore: Double = 2.0 // Gini is from 0 to 1
+      var bestScore: Double = Double.PositiveInfinity
     var bestSplits: List[SplitContainer] = List[SplitContainer]()
-    for (rowIdx <- 0 until dataset.rows) {
-      for (colIdx <- 0 until dataset.cols) {
-        // basically grid search here to find a col and value to split on
-        val splitValue = dataset(rowIdx)(colIdx)
-        val splits = this.testSplit(dataset, targets, colIdx, splitValue)
-        val gini = this.giniImpurity(splits)
-        if (gini < bestScore) {
-          bestIndex = Option[Int](colIdx)
-          bestValue = Option[Double](splitValue)
-          bestScore = gini
-          bestSplits = splits
+    try {
+      for (rowIdx <- 0 until dataset.rows) {
+        for (colIdx <- 0 until dataset.cols) {
+          // basically grid search here to find a col and value to split on
+          val splitValue = dataset(rowIdx)(colIdx)
+          val splits = this.testSplit(dataset, targets, colIdx, splitValue)
+          val gini = this.giniImpurity(splits)
+          if (gini < bestScore) {
+            bestIndex = Option[Int](colIdx)
+            bestValue = Option[Double](splitValue)
+            bestScore = gini
+            bestSplits = splits
+            if (gini == 0) throw AllDone
+          }
         }
       }
+    } catch {
+      // using this to break the for loop.
+      case AllDone =>
     }
-    DecisionBranch[Int](Some(this.getSplit(bestSplits.head.X, bestSplits.head.y, depth + 1)),
-      Some(this.getSplit(bestSplits(1).X, bestSplits(1).y, depth + 1)), bestValue, bestIndex)
+
+    if (bestSplits.head.y.rows > 0 && bestSplits(1).y.rows > 0) {
+      DecisionBranch[Int](Some(this.getSplit(bestSplits.head.X, bestSplits.head.y, depth + 1)),
+        Some(this.getSplit(bestSplits(1).X, bestSplits(1).y, depth + 1)),
+        bestValue,
+        bestIndex)
+    } else {
+      // No split was found so we'll stop
+      toTerminal(targets)
+    }
+
   }
 
   def toTerminal(targets: Matrix[Int]): DecisionBranch[Int] = {
@@ -121,17 +138,16 @@ class DecisionTree(val X: Matrix[Double], val y: Matrix[Int], val maxDepth: Int,
       * This is the real function we'll use to predict and just
       * provide an interface through predict() above
       */
-    private def realPredict(data: Array[Double],
-                            tree: DecisionBranch[Int],
-                            colIdx: Option[Int],
-                            splitValue: Option[Double]) : Int = {
-      if (tree.classValue.nonEmpty) {
-        tree.classValue.getOrElse(-1)
-      } else if (data(colIdx.getOrElse(-1: Int)) < splitValue.getOrElse(-1: Double)){
-        realPredict(data, tree.left.getOrElse(DecisionBranch[Int]()), tree.colIndex, tree.splitValue)
-      } else {
-        realPredict(data, tree.right.getOrElse(DecisionBranch[Int]()), tree.colIndex, tree.splitValue)
-      }
+  private def realPredict(data: Array[Double],
+                          tree: DecisionBranch[Int],
+                          colIdx: Option[Int],
+                          splitValue: Option[Double]) : Int = {
+    if (tree.classValue.nonEmpty) {
+      tree.classValue.getOrElse(-1)
+    } else if (data(colIdx.getOrElse(-1: Int)) < splitValue.getOrElse(-1: Double)){
+      realPredict(data, tree.left.getOrElse(DecisionBranch[Int]()), tree.colIndex, tree.splitValue)
+    } else {
+      realPredict(data, tree.right.getOrElse(DecisionBranch[Int]()), tree.colIndex, tree.splitValue)
     }
-
+  }
 }
